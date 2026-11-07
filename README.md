@@ -1,2 +1,3 @@
 # http-rust-sever
-http server in rust from scratch 
+
+mutli-threaded http server in rust from scratch
