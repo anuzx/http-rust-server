@@ -1,6 +1,7 @@
 // TCP listener and connection handling
 
 use crate::request::HttpRequest;
+use crate::response::HttpResponse;
 use std::io::{self, Read};
 use std::net::{TcpListener, TcpStream};
 
@@ -95,25 +96,37 @@ fn read_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
     Ok(request)
 }
 
-
 fn handle_client(mut stream: TcpStream) {
     match read_request(&mut stream) {
         Ok(request) => {
             println!("Parsed request: {:#?}", request);
 
-            println!("Body length: {}", request.body.len());
+            let response = HttpResponse::new(
+                200, 
+                "application/json".to_string(), 
+                b"success\n".to_vec(),
+            );
 
-            if let Ok(body) = std::str::from_utf8(&request.body) {
-                println!("Body: {}", body);
+            if let Err(error) = response.send(&mut stream) {
+                eprintln!("Failed to send response: {}", error);
             }
         }
 
         Err(error) => {
             eprintln!("Request error: {}", error);
+
+            let response = HttpResponse::new(
+                400, 
+                "application/json".to_string(), 
+                b"Bad Request\n".to_vec()
+            );
+
+            if let Err(error) = response.send(&mut stream) {
+                eprintln!("Failed to send error response: {}", error);
+            }
         }
     }
 }
-
 
 pub fn start() {
     let listener = TcpListener::bind("127.0.0.1:8080").expect("Failed to bind to port 8080");
