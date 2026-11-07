@@ -16,6 +16,7 @@ pub struct HttpRequest {
     pub path: String,
     pub version: String,
     pub headers: HashMap<String, String>,
+    pub body: Vec<u8>,
 }
 
 impl HttpRequest {
@@ -65,6 +66,7 @@ impl HttpRequest {
             path: path.to_string(),
             version: version.to_string(),
             headers,
+            body: Vec::new(),
         })
     }
 }
