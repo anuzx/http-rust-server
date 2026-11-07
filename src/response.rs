@@ -1,6 +1,7 @@
 // HTTP response types
 
+#[derive(Debug)]
 pub struct HttpResponse<T> {
-    pub status_code : u16, //http status code are non-negative int
+    pub status_code: u16,
     pub body: T,
 }
