@@ -1,6 +1,6 @@
 // TCP listener and connection handling
 
-use crate::request::{HttpMethod, HttpRequest};
+use crate::request::{ HttpMethod, HttpRequest};
 use crate::response::HttpResponse;
 use std::io::{self, Read};
 use std::net::{TcpListener, TcpStream};
@@ -97,42 +97,44 @@ fn read_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
     Ok(request)
 }
 
+fn supports_gzip(request: &HttpRequest) -> bool {
+    match request.headers.get("accept-encoding") {
+        Some(value) => value.split(',').any(|encoding| encoding.trim() == "gzip"),
+        None => false,
+    }
+}
+
 fn handle_client(mut stream: TcpStream) {
     match read_request(&mut stream) {
         Ok(request) => {
             println!("Parsed request: {:#?}", request);
 
-            let response = if matches!(&request.method, &HttpMethod::Get)
-                && request.path == "/index.html"
-            {
-                // Only this exact route can access the HTML file.
-                match fs::read("public/index.html") {
-                    Ok(contents) => {
-                        HttpResponse::new(
-                            200,
-                            "text/html".to_string(),
-                            contents,
-                        )
-                    }
+            let mut response =
+                if matches!(&request.method, &HttpMethod::Get) && request.path == "/index.html" {
+                    // Only this exact route can access the HTML file.
+                    match fs::read("public/index.html") {
+                        Ok(contents) => HttpResponse::new(200, "text/html".to_string(), contents),
 
-                    Err(error) => {
-                        eprintln!("Failed to read HTML file: {}", error);
+                        Err(error) => {
+                            eprintln!("Failed to read HTML file: {}", error);
 
-                        HttpResponse::new(
-                            500,
-                            "text/plain".to_string(),
-                            b"Internal Server Error".to_vec(),
-                        )
+                            HttpResponse::new(
+                                500,
+                                "text/plain".to_string(),
+                                b"Internal Server Error".to_vec(),
+                            )
+                        }
                     }
+                } else {
+                    // Normal response for every other request.
+                    HttpResponse::new(200, "text/plain".to_string(), b"Hello from Rust!".to_vec())
+                };
+
+            if supports_gzip(&request) {
+                if let Err(error) = response.compress_gzip() {
+                    eprintln!("Gzip compression failed: {}", error);
                 }
-            } else {
-                // Normal response for every other request.
-                HttpResponse::new(
-                    200,
-                    "text/plain".to_string(),
-                    b"Hello from Rust!".to_vec(),
-                )
-            };
+            }
 
             if let Err(error) = response.send(&mut stream) {
                 eprintln!("Failed to send response: {}", error);
@@ -142,11 +144,8 @@ fn handle_client(mut stream: TcpStream) {
         Err(error) => {
             eprintln!("Request error: {}", error);
 
-            let response = HttpResponse::new(
-                400,
-                "text/plain".to_string(),
-                b"Bad Request".to_vec(),
-            );
+            let response =
+                HttpResponse::new(400, "text/plain".to_string(), b"Bad Request".to_vec());
 
             if let Err(error) = response.send(&mut stream) {
                 eprintln!("Failed to send error response: {}", error);
@@ -154,6 +153,8 @@ fn handle_client(mut stream: TcpStream) {
         }
     }
 }
+
+
 
 pub fn start() {
     let listener = TcpListener::bind("127.0.0.1:8080").expect("Failed to bind to port 8080");
