@@ -4,7 +4,7 @@ use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 use std::io::{self, Read};
 use std::net::{TcpListener, TcpStream};
-use std::thread;
+use std::{fs, thread};
 
 fn read_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
     const MAX_HEADER_SIZE: usize = 16 * 1024;
