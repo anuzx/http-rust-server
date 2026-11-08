@@ -4,7 +4,7 @@ use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 use std::io::{self, Read};
 use std::net::{TcpListener, TcpStream};
-use std::thread;
+use std::{fs, thread};
 
 fn read_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
     const MAX_HEADER_SIZE: usize = 16 * 1024;
@@ -102,14 +102,30 @@ fn handle_client(mut stream: TcpStream) {
         Ok(request) => {
             println!("Parsed request: {:#?}", request);
 
-            let response = HttpResponse::new(
-                200, 
-                "application/json".to_string(), 
-                b"success\n".to_vec(),
-            );
+            let file_path = "public/index.html";
 
-            if let Err(error) = response.send(&mut stream) {
-                eprintln!("Failed to send response: {}", error);
+            match fs::read(file_path) {
+                Ok(contents) => {
+                    let response = HttpResponse::new(200, "text/html".to_string(), contents);
+
+                    if let Err(error) = response.send(&mut stream) {
+                        eprintln!("Failed to send response: {}", error);
+                    }
+                }
+
+                Err(error) => {
+                    eprintln!("Failed to read file: {}", error);
+
+                    let response = HttpResponse::new(
+                        500,
+                        "text/plain".to_string(),
+                        b"Internal Server Error".to_vec(),
+                    );
+
+                    if let Err(error) = response.send(&mut stream) {
+                        eprintln!("Failed to send error response: {}", error);
+                    }
+                }
             }
         }
 
@@ -117,9 +133,9 @@ fn handle_client(mut stream: TcpStream) {
             eprintln!("Request error: {}", error);
 
             let response = HttpResponse::new(
-                400, 
-                "application/json".to_string(), 
-                b"Bad Request\n".to_vec()
+                400,
+                "application/json".to_string(),
+                b"Bad Request\n".to_vec(),
             );
 
             if let Err(error) = response.send(&mut stream) {
