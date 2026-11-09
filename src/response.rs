@@ -1,9 +1,9 @@
 // HTTP response types
 
+use flate2::Compression;
+use flate2::write::GzEncoder;
 use std::io::{self, Write};
 use std::net::TcpStream;
-use flate2::write::GzEncoder;
-use flate2::Compression;
 
 pub struct HttpResponse {
     pub status_code: u16,
@@ -23,18 +23,15 @@ impl HttpResponse {
     }
 
     pub fn compress_gzip(&mut self) -> io::Result<()> {
-        let mut encoder = GzEncoder::new(
-            Vec::new(),
-            Compression::default(),
-        );
-    
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+
         encoder.write_all(&self.body)?;
-    
+
         let compressed_body = encoder.finish()?;
-    
+
         self.body = compressed_body;
         self.content_encoding = Some("gzip".to_string());
-    
+
         Ok(())
     }
 
@@ -50,26 +47,25 @@ impl HttpResponse {
         let mut headers = format!(
             "HTTP/1.1 {} {}\r\n\
              Content-Type: {}\r\n\
-             Content-Length: {}\r\n\
-             Connection: close\r\n\
-             \r\n",
+             Content-Length: {}\r\n",
             self.status_code,
             status_text,
             self.content_type,
             self.body.len(),
         );
 
+        // Add Content-Encoding before ending the headers.
         if let Some(encoding) = &self.content_encoding {
             headers.push_str(&format!("Content-Encoding: {}\r\n", encoding));
         }
 
-        headers.push_str("Connection: close\r\n\r\n");
+        // End the HTTP header section.
+        headers.push_str("\r\n");
 
+        // Send headers first, then body.
         stream.write_all(headers.as_bytes())?;
         stream.write_all(&self.body)?;
 
         Ok(())
     }
-
-    
 }
