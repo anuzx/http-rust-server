@@ -120,7 +120,7 @@ fn handle_client(mut stream: TcpStream) {
                     let response =
                         HttpResponse::new(400, "text/plain".to_string(), b"Bad Request".to_vec());
 
-                    let _ = response.send(&mut stream);
+                    let _ = response.send(&mut stream , false);
                     
                 }
 
@@ -157,15 +157,9 @@ fn handle_client(mut stream: TcpStream) {
             }
         }
 
-        // 4. Send the response.
-        if let Err(error) = response.send(&mut stream) {
-            eprintln!("Failed to send response: {}", error);
-            break;
-        }
-
-        println!("========== RESPONSE SENT ==========\n");
-
-        // 5. Check whether the client requested connection closure.
+        
+        
+        // 4. Check whether the client requested connection closure.
         let should_close = request
             .headers
             .get("connection")
@@ -175,14 +169,23 @@ fn handle_client(mut stream: TcpStream) {
                     .any(|token| token.trim().eq_ignore_ascii_case("close"))
             })
             .unwrap_or(false);
-
+        
+        // 5. Send the response with the correct connection header.
+        if let Err(error) = response.send(&mut stream, !should_close) {
+            eprintln!("Failed to send response: {}", error);
+            break;
+        }
+        
+        println!("========== RESPONSE SENT ==========\n");
+        
         if should_close {
             println!("Client requested connection closure.");
             break;
         }
+        
+        println!("Waiting for next request on the same connection...\n");
+        println!("========== NEW HTTP REQUEST ==========");
 
-        println!("Waiting for next request on the same connection..."); 
-        println!("\n========== NEW HTTP REQUEST ==========");
     }
 }
 

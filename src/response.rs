@@ -35,7 +35,7 @@ impl HttpResponse {
         Ok(())
     }
 
-    pub fn send(&self, stream: &mut TcpStream) -> io::Result<()> {
+    pub fn send(&self, stream: &mut TcpStream, keep_alive: bool) -> io::Result<()> {
         let status_text = match self.status_code {
             200 => "OK",
             400 => "Bad Request",
@@ -57,6 +57,12 @@ impl HttpResponse {
         // Add Content-Encoding before ending the headers.
         if let Some(encoding) = &self.content_encoding {
             headers.push_str(&format!("Content-Encoding: {}\r\n", encoding));
+        }
+
+        if keep_alive {
+            headers.push_str("Connection: keep-alive\r\n");
+        } else {
+            headers.push_str("Connection: close\r\n");
         }
 
         // End the HTTP header section.
